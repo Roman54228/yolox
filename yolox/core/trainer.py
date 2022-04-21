@@ -11,6 +11,7 @@ import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.utils.tensorboard import SummaryWriter
 
+import numpy as np
 from yolox.data import DataPrefetcher
 from yolox.utils import (
     MeterBuffer,
@@ -38,7 +39,7 @@ class Trainer:
         # before_train methods.
         self.exp = exp
         self.args = args
-
+        print('trainer exp', type(exp))
         # training related attr
         self.max_epoch = exp.max_epoch
         self.amp_training = args.fp16
@@ -288,6 +289,7 @@ class Trainer:
             ckpt = torch.load(ckpt_file, map_location=self.device)
             # resume the model/optimizer state dict
             model.load_state_dict(ckpt["model"])
+            print('core/trainer.py dict', model.load_state_dict(ckpt["model"]))
             self.optimizer.load_state_dict(ckpt["optimizer"])
             self.best_ap = ckpt.pop("best_ap", 0)
             # resume the training states variables
@@ -308,6 +310,7 @@ class Trainer:
                 ckpt_file = self.args.ckpt
                 ckpt = torch.load(ckpt_file, map_location=self.device)["model"]
                 model = load_ckpt(model, ckpt)
+                #model.load_state_dict(ckpt["model"])
             self.start_epoch = 0
 
         return model
@@ -321,13 +324,13 @@ class Trainer:
                 evalmodel = evalmodel.module
 
         with adjust_status(evalmodel, training=False):
-            ap50_95, ap50, summary = self.exp.eval(
+            ap50_95, ap50, summary, ap_list_cls = self.exp.eval(
                 evalmodel, self.evaluator, self.is_distributed
             )
 
         update_best_ckpt = ap50_95 > self.best_ap
         self.best_ap = max(self.best_ap, ap50_95)
-
+        print('core/trainer.py ap_list_cls', ap_list_cls)
         if self.rank == 0:
             if self.args.logger == "tensorboard":
                 self.tblogger.add_scalar("val/COCOAP50", ap50, self.epoch + 1)
@@ -336,6 +339,12 @@ class Trainer:
                 self.wandb_logger.log_metrics({
                     "val/COCOAP50": ap50,
                     "val/COCOAP50_95": ap50_95,
+                    "val/mean_no_canister": np.mean(ap_list_cls[:2]+ap_list_cls[3:]),
+                    "val/detergent": ap_list_cls[0],
+                    "val/cans": ap_list_cls[1],
+                    "val/canister": ap_list_cls[2],
+                    "val/cardboard": ap_list_cls[3],
+                    "val/bottle": ap_list_cls[4],
                     "epoch": self.epoch + 1,
                 })
             logger.info("\n" + summary)

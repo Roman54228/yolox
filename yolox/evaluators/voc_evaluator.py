@@ -125,9 +125,10 @@ class VOCEvaluator:
             data_list = ChainMap(*data_list)
             torch.distributed.reduce(statistics, dst=0)
 
-        eval_results = self.evaluate_prediction(data_list, statistics)
+        mAP50, mAP70, info, ap_list_cls = self.evaluate_prediction(data_list, statistics)
         synchronize()
-        return eval_results
+        #print('voc_evaluator.py eval_results',eval_results)
+        return mAP50, mAP70, info, ap_list_cls
 
     def convert_to_voc_format(self, outputs, info_imgs, ids):
         predictions = {}
@@ -202,7 +203,8 @@ class VOCEvaluator:
             sys.stdout.flush()
 
         with tempfile.TemporaryDirectory() as tempdir:
-            mAP50, mAP70 = self.dataloader.dataset.evaluate_detections(
+            mAP50, mAP70, ap_list_cls = self.dataloader.dataset.evaluate_detections(
                 all_boxes, tempdir
             )
-            return mAP50, mAP70, info
+            print('evaluators/voc_evaluator.py ap_list_cls', ap_list_cls)
+            return mAP50, mAP70, info, ap_list_cls

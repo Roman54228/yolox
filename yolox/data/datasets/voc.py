@@ -268,14 +268,16 @@ class VOCDetection(Dataset):
         )
         mAPs = []
         for iou in IouTh:
-            mAP = self._do_python_eval(output_dir, iou)
+            mAP, tttrash  = self._do_python_eval(output_dir, iou)
             mAPs.append(mAP)
 
         print("--------------------------------------------------------------")
         print("map_5095:", np.mean(mAPs))
         print("map_50:", mAPs[0])
         print("--------------------------------------------------------------")
-        return np.mean(mAPs), mAPs[0]
+        x, ap_list_cls = self._do_python_eval(output_dir, 0.5)
+        print('voc.py evaluate_detections', ap_list_cls)
+        return np.mean(mAPs), mAPs[0], ap_list_cls
 
     def _get_voc_results_file_template(self):
         filename = "comp4_det_test" + "_{:s}.txt"
@@ -347,6 +349,7 @@ class VOCDetection(Dataset):
             if output_dir is not None:
                 with open(os.path.join(output_dir, cls + "_pr.pkl"), "wb") as f:
                     pickle.dump({"rec": rec, "prec": prec, "ap": ap}, f)
+        print('yolox/data/datasets/voc.py ap_list', len(aps), aps)
         if iou == 0.5:
             print("Mean AP = {:.4f}".format(np.mean(aps)))
             print("~~~~~~~~")
@@ -363,4 +366,4 @@ class VOCDetection(Dataset):
             print("-- Thanks, The Management")
             print("--------------------------------------------------------------")
 
-        return np.mean(aps)
+        return np.mean(aps), aps

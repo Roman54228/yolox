@@ -135,7 +135,7 @@ class WandbLogger(object):
                 "wandb is not installed."
                 "Please install wandb using pip install wandb"
                 )
-
+        name = '5class_with_weights2'
         self.project = project
         self.name = name
         self.id = id
